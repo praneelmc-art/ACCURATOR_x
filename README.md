@@ -5,9 +5,32 @@ A full-stack industrial IoT telemetry, automatic calibration, and sensor health 
 ---
 
 ## System Architecture
-
-
----
+┌──────────────────────────┐
+│  Arduino Uno Hardware    │  (Pins A0 / D2, FTDI USB Serial)
+│  (edge_module_firmware)  │  Packet: [LIVE TX] ID: 1 | RawH: 72.10 | CalH: 73.60 | LDR: 94 | Status: ONLINE
+└────────────┬─────────────┘
+             │  USB Serial @ 9600 Baud (COM11)
+             ▼
+┌──────────────────────────┐
+│  Node.js Serial Gateway  │  (server.js - Port 3000)
+│  (Express + Socket.IO)   │  • Reads COM11 with ReadlineParser
+└────────────┬─────────────┘  • Emits 'sensor-data' to web clients
+             │
+             ├─────────────────────────────────────────┐
+             ▼                                         ▼
+┌──────────────────────────┐               ┌──────────────────────────┐
+│  Live Web Dashboard UI   │               │   FastAPI AI Backend     │
+│   (public/index.html)    │               │    (backend/main.py)     │
+│  • Chart.js Sharp Peaks  │               │ • Automatic Calibration  │
+│  • Dynamic Micro-Zoom    │               │ • Gaussian Z-Score       │
+│  • Sensor Performances   │               │ • Drift & Anomaly Score  │
+│  • Live Serial Log       │               └─────────────┬────────────┘
+└──────────────────────────]                             │
+                                                         ▼
+                                           ┌──────────────────────────┐
+                                           │    Supabase Cloud DB     │
+                                           │   (PostgreSQL Table)     │
+                                           └──────────────────────────┘
 
 ## Hardware Specification & Serial Protocol
 - Microcontroller: Arduino Uno (detected on COM11)
