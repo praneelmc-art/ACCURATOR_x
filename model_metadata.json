@@ -1,0 +1,105 @@
+{
+  "model_name": "RandomForest_Sensor_Failure_And_Anomaly_Detector",
+  "algorithm": "RandomForestClassifier",
+  "classes": [
+    "anomaly",
+    "healthy",
+    "unhealthy",
+    "warning"
+  ],
+  "feature_cols": [
+    "sensor_type",
+    "raw_value",
+    "slope",
+    "intercept",
+    "slope_deviation",
+    "relative_error_pct",
+    "rolling_slope_mean",
+    "rolling_slope_std",
+    "rolling_drift_mean",
+    "slope_rate_of_change",
+    "spike_ratio"
+  ],
+  "feature_importances": {
+    "relative_error_pct": 0.2149,
+    "rolling_slope_mean": 0.1752,
+    "slope": 0.1531,
+    "slope_deviation": 0.135,
+    "slope_rate_of_change": 0.0975,
+    "rolling_slope_std": 0.0832,
+    "spike_ratio": 0.0534,
+    "rolling_drift_mean": 0.0508,
+    "raw_value": 0.0214,
+    "intercept": 0.0078,
+    "sensor_type_CO2": 0.003,
+    "sensor_type_Light_LDR": 0.0025,
+    "sensor_type_Temperature": 0.0017,
+    "sensor_type_Humidity": 0.0004
+  },
+  "performance": {
+    "test_accuracy": 0.9929,
+    "test_macro_f1": 0.9925,
+    "cv_f1_mean": 0.9915,
+    "cv_f1_std": 0.0039,
+    "confusion_matrix": [
+      [
+        36,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        356,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        84,
+        0
+      ],
+      [
+        0,
+        4,
+        0,
+        80
+      ]
+    ]
+  },
+  "slope_patterns": {
+    "healthy": {
+      "typical_slope_range": [
+        0.985,
+        1.015
+      ],
+      "typical_slope_deviation": "< 0.02",
+      "risk_status": "LOW_RISK"
+    },
+    "warning": {
+      "typical_slope_range": [
+        1.05,
+        1.12
+      ],
+      "typical_slope_deviation": "0.05 - 0.12",
+      "description": "Incipient calibration drift detected. Sensor response slope shifted ~7-10%. Early failure warning.",
+      "risk_status": "EARLY_DRIFT_WARNING"
+    },
+    "unhealthy": {
+      "typical_slope_range": [
+        1.18,
+        1.45
+      ],
+      "typical_slope_deviation": "> 0.18",
+      "description": "Severe calibration divergence. Sensor slope exceeded operational threshold (+20%). Critical failure.",
+      "risk_status": "CRITICAL_FAILURE_IMMINENT"
+    },
+    "anomaly": {
+      "typical_spike_ratio": "> 2.5",
+      "typical_slope_deviation": "< 0.03",
+      "description": "Transient anomaly fluctuation detected (optical flash / thermal spike / ADC glitch). Underlying calibration curve is healthy. Filtered out and ignored.",
+      "risk_status": "TRANSIENT_ANOMALY"
+    }
+  }
+}
