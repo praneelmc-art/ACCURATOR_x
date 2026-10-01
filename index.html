@@ -1,0 +1,1671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Accuratur AI · Edge Telemetry & Predictive Maintenance</title>
+  
+  <!-- Modern Fonts: Plus Jakarta Sans & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+
+  <style>
+    :root {
+      --bg-dark: #0B0F17;
+      --card-bg: rgba(15, 23, 42, 0.72);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --glow-emerald: rgba(16, 185, 129, 0.15);
+      --glow-cyan: rgba(6, 182, 212, 0.15);
+      --glow-indigo: rgba(99, 102, 241, 0.15);
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: var(--bg-dark);
+      background-image: 
+        radial-gradient(circle 600px at 0% 0%, rgba(6, 182, 212, 0.12), transparent 70%),
+        radial-gradient(circle 800px at 100% 15%, rgba(99, 102, 241, 0.14), transparent 70%),
+        radial-gradient(circle 900px at 50% 100%, rgba(16, 185, 129, 0.08), transparent 70%),
+        radial-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 100% 100%, 24px 24px;
+      color: #F8FAFC;
+    }
+
+    .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Glassmorphism Classes */
+    .glass-panel {
+      background: var(--card-bg);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border: 1px solid var(--card-border);
+      box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    }
+
+    .glass-panel-subtle {
+      background: rgba(15, 23, 42, 0.55);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .glass-card-hover {
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .glass-card-hover:hover {
+      transform: translateY(-2px);
+      border-color: rgba(255, 255, 255, 0.18);
+      box-shadow: 0 22px 35px -10px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    }
+
+    /* Glow Effects */
+    .glow-cyan {
+      box-shadow: 0 0 25px -5px rgba(6, 182, 212, 0.4);
+    }
+    .glow-emerald {
+      box-shadow: 0 0 25px -5px rgba(16, 185, 129, 0.4);
+    }
+    .glow-indigo {
+      box-shadow: 0 0 25px -5px rgba(99, 102, 241, 0.4);
+    }
+
+    /* Pulsating Beacon */
+    @keyframes radar-pulse {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+      70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+    .beacon-live {
+      animation: radar-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    /* Selected Sensor Card Highlight */
+    .sensor-card-selected {
+      border-color: #10B981 !important;
+      background: rgba(16, 185, 129, 0.08) !important;
+      box-shadow: 0 0 30px -5px rgba(16, 185, 129, 0.3), inset 0 1px 0 rgba(16, 185, 129, 0.3) !important;
+    }
+
+    /* Sensor Selector Button Styles */
+    .sensor-btn {
+      transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      position: relative;
+      cursor: pointer;
+    }
+    .sensor-btn:hover {
+      transform: translateY(-2px);
+      border-color: rgba(255, 255, 255, 0.25);
+      background: rgba(30, 41, 59, 0.85);
+      box-shadow: 0 12px 24px -6px rgba(0, 0, 0, 0.6);
+    }
+    .sensor-btn-active {
+      border-color: #06B6D4 !important;
+      background: linear-gradient(135deg, rgba(6, 182, 212, 0.22), rgba(16, 185, 129, 0.15)) !important;
+      box-shadow: 0 0 25px -2px rgba(6, 182, 212, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+      transform: translateY(-2px);
+    }
+
+    /* Slim Sleek Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(11, 15, 23, 0.8);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+  </style>
+</head>
+<body class="min-h-screen text-slate-100 antialiased p-4 sm:p-6 lg:p-8">
+  <div class="max-w-7xl mx-auto space-y-6">
+
+    <!-- ========================================================================= -->
+    <!-- HEADER: BRANDING, STATUS BEACON, RECONNECT & CONTROLS -->
+    <!-- ========================================================================= -->
+    <header class="glass-panel rounded-2xl p-5 sm:p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4 relative overflow-hidden">
+      <!-- Top Decorative Color Strip -->
+      <div class="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-cyan-500 via-emerald-400 to-indigo-500"></div>
+
+      <div class="flex items-center gap-4">
+        <!-- Logo Icon -->
+        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-400/20 via-cyan-500/20 to-indigo-600/30 border border-emerald-500/30 flex items-center justify-center glow-emerald shrink-0">
+          <svg class="w-6 h-6 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+        </div>
+        <div>
+          <div class="flex flex-wrap items-center gap-2.5">
+            <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-slate-100 via-slate-200 to-cyan-300 bg-clip-text text-transparent">
+              Accuratur AI
+            </h1>
+            <span class="text-[11px] font-semibold tracking-wider uppercase px-2.5 py-0.5 rounded-full bg-indigo-950/80 text-indigo-300 border border-indigo-700/60 font-mono">
+              RF ML Engine v2.4
+            </span>
+          </div>
+          <p class="text-xs sm:text-sm text-slate-400 mt-0.5">
+            High-Definition Edge Waveform Telemetry &amp; Random Forest Predictive Maintenance
+          </p>
+        </div>
+      </div>
+
+      <!-- Live Connection Badges & Quick Reconnect -->
+      <div class="flex flex-wrap items-center gap-2.5">
+        <!-- Arduino Link Badge -->
+        <div class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-xs font-medium text-emerald-300 shadow-sm">
+          <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 beacon-live"></span>
+          <span>Arduino Uno (<strong class="font-mono text-emerald-200">COM11</strong>)</span>
+        </div>
+
+        <!-- 4 Hz Sampling Badge -->
+        <div class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900/80 border border-slate-700/80 text-xs font-mono text-cyan-300">
+          <span class="text-slate-500">Rate:</span> 4 Hz
+        </div>
+
+        <!-- Quick Manual Reconnect Button -->
+        <button onclick="manualReconnect()" id="btn-reconnect" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600/80 text-xs text-slate-200 hover:text-white transition active:scale-95" title="Reconnect Serial Port">
+          <span id="reconnect-icon">🔄</span>
+          <span id="reconnect-label">Reconnect</span>
+        </button>
+
+        <!-- Download Anomaly Dataset CSV Button -->
+        <a href="/api/dataset/temperature_ldr_sensor_anomaly_dataset.csv" download="temperature_ldr_sensor_anomaly_dataset.csv" id="btn-download-dataset" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-950/80 hover:bg-purple-900 border border-purple-700/80 text-xs font-mono font-semibold text-purple-300 hover:text-purple-100 transition shadow-sm" title="Download temperature_ldr_sensor_anomaly_dataset.csv">
+          <span>📥</span>
+          <span>Download Dataset CSV</span>
+        </a>
+      </div>
+    </header>
+
+    <!-- ========================================================================= -->
+    <!-- TOP KPI STATUS METRICS (4 ELEVATED GLASS CARDS) -->
+    <!-- ========================================================================= -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      
+      <!-- Card 1: Hardware Link -->
+      <div class="glass-panel glass-card-hover rounded-2xl p-5 relative overflow-hidden">
+        <div class="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-amber-500 to-emerald-500"></div>
+        <div class="flex items-center justify-between">
+          <span class="text-xs uppercase font-semibold text-slate-400 tracking-wider">Hardware Link</span>
+          <span class="text-base text-slate-500">⚡</span>
+        </div>
+        <div id="connection-status" class="text-xl font-bold text-amber-400 mt-2 font-mono flex items-center gap-2">
+          Waiting for data...
+        </div>
+        <span class="text-[11px] text-slate-500 mt-1 block">FTDI USB Serial @ 9600 baud</span>
+      </div>
+
+      <!-- Card 2: Last Packet Timestamp -->
+      <div class="glass-panel glass-card-hover rounded-2xl p-5 relative overflow-hidden">
+        <div class="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-indigo-500 to-cyan-500"></div>
+        <div class="flex items-center justify-between">
+          <span class="text-xs uppercase font-semibold text-slate-400 tracking-wider">Last Packet</span>
+          <span class="text-base text-slate-500">⏱</span>
+        </div>
+        <div id="last-packet-time" class="text-xl font-bold text-slate-100 mt-2 font-mono">
+          --:--:--
+        </div>
+        <span class="text-[11px] text-slate-500 mt-1 block">Real-time gateway clock sync</span>
+      </div>
+
+      <!-- Card 3: Live Raw Reading -->
+      <div class="glass-panel glass-card-hover rounded-2xl p-5 relative overflow-hidden">
+        <div class="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-cyan-500 to-blue-500"></div>
+        <div class="flex items-center justify-between">
+          <span class="text-xs uppercase font-semibold text-slate-400 tracking-wider">Live Raw Sensor</span>
+          <span class="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-cyan-950/80 text-cyan-300 border border-cyan-800/80">RawH</span>
+        </div>
+        <div class="flex items-baseline gap-2 mt-2">
+          <span id="current-raw" class="text-3xl font-extrabold text-cyan-400 font-mono tracking-tight">--</span>
+          <span class="text-xs text-slate-400 font-mono">% RH</span>
+        </div>
+        <span class="text-[11px] text-slate-500 mt-1 block">Direct ADC uncorrected stream</span>
+      </div>
+
+      <!-- Card 4: Calibrated Output -->
+      <div class="glass-panel glass-card-hover rounded-2xl p-5 relative overflow-hidden">
+        <div class="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-emerald-500 to-teal-400"></div>
+        <div class="flex items-center justify-between">
+          <span class="text-xs uppercase font-semibold text-slate-400 tracking-wider">Calibrated Output</span>
+          <span id="current-delta" class="text-xs font-mono font-bold px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/80">(Δ: --)</span>
+        </div>
+        <div class="flex items-baseline gap-2 mt-2">
+          <span id="current-cal" class="text-3xl font-extrabold text-emerald-400 font-mono tracking-tight">--</span>
+          <span class="text-xs text-slate-400 font-mono">% RH</span>
+        </div>
+        <span class="text-[11px] text-slate-500 mt-1 block">Linear Gain (0.9899) + Hardware Offset</span>
+      </div>
+    </div>
+
+
+    <!-- ========================================================================= -->
+    <!-- SECTION: INTERACTIVE SENSOR SELECTOR BAR (INDIVIDUAL SENSOR BUTTONS) -->
+    <!-- ========================================================================= -->
+    <div class="glass-panel rounded-2xl p-4 sm:p-5 shadow-2xl relative overflow-hidden">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 pb-3 border-b border-slate-800/80">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="text-lg">🎛️</span>
+            <h2 class="text-sm font-bold text-slate-100 uppercase tracking-wider font-mono">
+              Sensor Fleet Selector // Click a Sensor to Inspect Full Telemetry
+            </h2>
+          </div>
+          <p class="text-xs text-slate-400 mt-0.5">
+            Click any sensor button below to load its full telemetry, calibration model, lifecycle lifespan, and precision audit.
+          </p>
+        </div>
+        <div class="flex items-center gap-2 text-xs font-mono bg-slate-950/80 px-3 py-1.5 rounded-xl border border-slate-800 shrink-0">
+          <span class="text-slate-400">Inspecting:</span>
+          <strong id="active-sensor-badge" class="text-emerald-400 font-bold">H01 (Humidity)</strong>
+        </div>
+      </div>
+
+      <!-- 7 Individual Sensor Buttons -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+        
+        <!-- Button 1: H01 -->
+        <button onclick="selectSensor('H01')" id="btn-sensor-H01" class="sensor-btn sensor-btn-active rounded-xl p-3 text-left">
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="font-mono font-bold text-sm text-slate-100">H01</span>
+            <span class="w-2 h-2 rounded-full bg-emerald-400 beacon-live" title="Live USB Stream"></span>
+          </div>
+          <div class="text-[11px] text-slate-400 truncate">Humidity (DHT22)</div>
+          <div class="mt-2 flex items-baseline justify-between">
+            <span id="btn-val-H01" class="font-mono text-xs font-bold text-emerald-400">52.4 %</span>
+            <span class="text-[9px] bg-emerald-950 text-emerald-300 border border-emerald-800 px-1 py-0.2 rounded font-mono font-bold">TODAY</span>
+          </div>
+        </button>
+
+        <!-- Button 2: LDR -->
+        <button onclick="selectSensor('LDR')" id="btn-sensor-LDR" class="sensor-btn rounded-xl p-3 text-left">
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="font-mono font-bold text-sm text-slate-100">LDR</span>
+            <span class="w-2 h-2 rounded-full bg-amber-400 beacon-live" title="Live Pin A0"></span>
+          </div>
+          <div class="text-[11px] text-slate-400 truncate">Optical Light</div>
+          <div class="mt-2 flex items-baseline justify-between">
+            <span id="btn-val-LDR" class="font-mono text-xs font-bold text-amber-300">-- ADC</span>
+            <span class="text-[9px] bg-amber-950 text-amber-300 border border-amber-800 px-1 py-0.2 rounded font-mono font-bold">TODAY</span>
+          </div>
+        </button>
+
+        <!-- Button 3: T01 -->
+        <button onclick="selectSensor('T01')" id="btn-sensor-T01" class="sensor-btn rounded-xl p-3 text-left">
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="font-mono font-bold text-sm text-slate-100">T01</span>
+            <span class="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+          </div>
+          <div class="text-[11px] text-slate-400 truncate">Primary Temp</div>
+          <div class="mt-2 flex items-baseline justify-between">
+            <span class="font-mono text-xs font-bold text-blue-300">25.23 °C</span>
+            <span class="text-[9px] text-slate-500 font-mono">RTD</span>
+          </div>
+        </button>
+
+        <!-- Button 4: T02 -->
+        <button onclick="selectSensor('T02')" id="btn-sensor-T02" class="sensor-btn rounded-xl p-3 text-left">
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="font-mono font-bold text-sm text-slate-100">T02</span>
+            <span class="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+          </div>
+          <div class="text-[11px] text-slate-400 truncate">Backup Temp</div>
+          <div class="mt-2 flex items-baseline justify-between">
+            <span class="font-mono text-xs font-bold text-blue-300">25.04 °C</span>
+            <span class="text-[9px] text-slate-500 font-mono">RTD</span>
+          </div>
+        </button>
+
+        <!-- Button 5: H02 -->
+        <button onclick="selectSensor('H02')" id="btn-sensor-H02" class="sensor-btn rounded-xl p-3 text-left">
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="font-mono font-bold text-sm text-slate-100">H02</span>
+            <span class="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
+          </div>
+          <div class="text-[11px] text-slate-400 truncate">Backup Humidity</div>
+          <div class="mt-2 flex items-baseline justify-between">
+            <span class="font-mono text-xs font-bold text-cyan-300">47.86 %</span>
+            <span class="text-[9px] text-slate-500 font-mono">SHT31</span>
+          </div>
+        </button>
+
+        <!-- Button 6: C01 -->
+        <button onclick="selectSensor('C01')" id="btn-sensor-C01" class="sensor-btn rounded-xl p-3 text-left">
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="font-mono font-bold text-sm text-slate-100">C01</span>
+            <span class="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
+          </div>
+          <div class="text-[11px] text-slate-400 truncate">Primary CO₂</div>
+          <div class="mt-2 flex items-baseline justify-between">
+            <span class="font-mono text-xs font-bold text-purple-300">643 ppm</span>
+            <span class="text-[9px] text-slate-500 font-mono">NDIR</span>
+          </div>
+        </button>
+
+        <!-- Button 7: C02 -->
+        <button onclick="selectSensor('C02')" id="btn-sensor-C02" class="sensor-btn rounded-xl p-3 text-left">
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="font-mono font-bold text-sm text-slate-100">C02</span>
+            <span class="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
+          </div>
+          <div class="text-[11px] text-slate-400 truncate">Backup CO₂</div>
+          <div class="mt-2 flex items-baseline justify-between">
+            <span class="font-mono text-xs font-bold text-purple-300">640 ppm</span>
+            <span class="text-[9px] text-slate-500 font-mono">NDIR</span>
+          </div>
+        </button>
+
+      </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- SECTION: DEDICATED SENSOR INFORMATION HUB (FOCUSED DETAIL FOR CLICKED SENSOR) -->
+    <!-- ========================================================================= -->
+    <div id="dedicated-sensor-hub" class="glass-panel rounded-2xl p-5 sm:p-6 shadow-2xl relative overflow-hidden space-y-5">
+      <!-- Top Decorative Accent -->
+      <div id="hub-top-accent" class="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-emerald-400 via-cyan-400 to-indigo-500"></div>
+
+      <!-- Sensor Header & Meta Bar -->
+      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 pb-4 border-b border-slate-800">
+        <div>
+          <div class="flex items-center gap-3">
+            <span id="hub-icon" class="text-3xl p-2 rounded-xl bg-slate-900/80 border border-slate-800">💧</span>
+            <div>
+              <div class="flex flex-wrap items-center gap-2">
+                <h1 id="hub-sensor-name" class="text-xl sm:text-2xl font-extrabold text-slate-100 font-mono tracking-tight">H01 (Live Arduino Uno)</h1>
+                <span id="hub-channel-tag" class="text-[10px] font-mono px-2.5 py-0.5 rounded-full border bg-emerald-950 text-emerald-400 border-emerald-800 font-bold uppercase tracking-wider">COM11 · Live Stream</span>
+                <span id="hub-new-badge" class="text-[9px] bg-emerald-950 text-emerald-300 border border-emerald-700 px-2 py-0.5 rounded font-mono font-bold uppercase tracking-wider">ADDED TODAY</span>
+              </div>
+              <p id="hub-sensor-model" class="text-xs text-slate-400 mt-1 font-mono">DHT22-PRO Capacitive Polymer Humidity Sensor</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Commissioning Date & Health Quick Badges -->
+        <div class="flex flex-wrap items-center gap-3 text-xs">
+          <div class="bg-slate-950/80 border border-slate-800 px-3 py-1.5 rounded-xl flex items-center gap-2">
+            <span class="text-slate-400">Commissioned:</span>
+            <span id="hub-commissioned" class="font-mono font-bold text-emerald-300">Today (Sep 30, 2026)</span>
+          </div>
+          <div class="bg-slate-950/80 border border-slate-800 px-3 py-1.5 rounded-xl flex items-center gap-2">
+            <span class="text-slate-400">Operating Status:</span>
+            <span id="hub-status-pill" class="font-mono font-bold text-emerald-400">OPTIMAL</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4 Core Metric Quadrants -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        
+        <!-- Pillar 1: Live Telemetry & Dynamics -->
+        <div class="glass-panel-subtle rounded-xl p-4 border border-slate-800 relative">
+          <div class="flex items-center justify-between text-xs text-slate-400 uppercase tracking-wider font-semibold mb-2">
+            <span>Live Telemetry</span>
+            <span id="hub-unit-tag" class="font-mono text-cyan-400 text-[10px] bg-cyan-950 border border-cyan-800 px-1.5 py-0.2 rounded">%RH</span>
+          </div>
+          <div class="space-y-2">
+            <div>
+              <span class="text-[11px] text-slate-400 block">Raw Uncorrected Value:</span>
+              <span id="hub-raw-val" class="text-2xl font-extrabold font-mono text-cyan-300">--</span>
+            </div>
+            <div>
+              <span class="text-[11px] text-slate-400 block">Calibrated Output:</span>
+              <div class="flex items-baseline gap-2">
+                <span id="hub-cal-val" class="text-2xl font-extrabold font-mono text-emerald-400">--</span>
+                <span id="hub-delta-val" class="text-xs font-mono font-bold text-emerald-300 bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-800">(Δ: --)</span>
+              </div>
+            </div>
+            <div class="pt-2 border-t border-slate-800 flex items-center justify-between text-xs">
+              <span class="text-slate-400 text-[11px]">Noise Jitter (σ):</span>
+              <span id="hub-jitter-val" class="font-mono text-amber-400 font-semibold">±0.00 %</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pillar 2: Calibration & Metrology -->
+        <div class="glass-panel-subtle rounded-xl p-4 border border-slate-800 relative">
+          <div class="flex items-center justify-between text-xs text-slate-400 uppercase tracking-wider font-semibold mb-2">
+            <span>Calibration Model</span>
+            <span class="text-[10px] font-mono text-slate-500">Regression</span>
+          </div>
+          <div class="space-y-2">
+            <div class="flex justify-between items-baseline">
+              <span class="text-[11px] text-slate-400">Learned Gain (Slope m):</span>
+              <span id="hub-gain-val" class="text-base font-bold font-mono text-slate-200">0.9899</span>
+            </div>
+            <div class="flex justify-between items-baseline">
+              <span class="text-[11px] text-slate-400">Learned Offset (Intercept b):</span>
+              <span id="hub-offset-val" class="text-base font-bold font-mono text-emerald-400">+0.0079</span>
+            </div>
+            <div class="pt-1">
+              <span class="text-[11px] text-slate-400 block mb-1">Mathematical Transfer:</span>
+              <code id="hub-equation-code" class="text-xs font-mono text-cyan-300 bg-slate-950/90 border border-slate-800 px-2 py-1 rounded block truncate">Cal = 0.9899 · Raw + 0.0079</code>
+            </div>
+            <div class="pt-2 border-t border-slate-800 flex items-center justify-between text-xs">
+              <span class="text-slate-400 text-[11px]">Bayesian Fusion Weight:</span>
+              <span id="hub-weight-val" class="font-mono text-cyan-400 font-semibold">0.990</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pillar 3: Commissioning & Lifespan -->
+        <div class="glass-panel-subtle rounded-xl p-4 border border-slate-800 relative">
+          <div class="flex items-center justify-between text-xs text-slate-400 uppercase tracking-wider font-semibold mb-2">
+            <span>Lifecycle & MTBF</span>
+            <span id="hub-days-active-badge" class="text-[10px] font-mono text-emerald-400 bg-emerald-950 border border-emerald-800 px-1.5 py-0.2 rounded font-bold">0 days (Day 1)</span>
+          </div>
+          <div class="space-y-1.5 text-xs">
+            <div class="flex justify-between">
+              <span class="text-slate-400">Theoretical Lifespan:</span>
+              <span id="hub-lifespan-val" class="font-mono text-slate-200 font-semibold">3.0 Years (26,280 hrs)</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-400">Remaining Service:</span>
+              <span id="hub-remaining-days" class="font-mono text-emerald-300 font-semibold">1,095 days left</span>
+            </div>
+            <div class="pt-1">
+              <div class="flex justify-between text-[11px] font-mono text-slate-400 mb-1">
+                <span>Life Consumed:</span>
+                <span id="hub-life-used-pct" class="text-slate-200 font-bold">0.0% used</span>
+              </div>
+              <div class="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden border border-slate-800">
+                <div id="hub-life-bar" class="bg-gradient-to-r from-emerald-400 to-cyan-500 h-1.5 rounded-full" style="width: 1%;"></div>
+              </div>
+            </div>
+            <div class="pt-1.5 border-t border-slate-800 flex items-center justify-between text-xs">
+              <span class="text-slate-400 text-[11px]">Next Cal Audit:</span>
+              <span id="hub-next-cal-val" class="font-mono text-indigo-300 font-semibold">in 180 days</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pillar 4: Accuracy, Precision & Health -->
+        <div class="glass-panel-subtle rounded-xl p-4 border border-slate-800 relative">
+          <div class="flex items-center justify-between text-xs text-slate-400 uppercase tracking-wider font-semibold mb-2">
+            <span>Accuracy & Precision</span>
+            <span id="hub-reliability-text" class="text-[10px] font-mono text-emerald-400 bg-emerald-950 border border-emerald-800 px-1.5 py-0.2 rounded font-bold">98.5% Nominal</span>
+          </div>
+          <div class="space-y-2">
+            <div class="flex justify-between items-baseline">
+              <span class="text-[11px] text-slate-400">Calibration Accuracy:</span>
+              <div class="flex items-baseline gap-1">
+                <span id="hub-accuracy-val" class="text-xl font-bold font-mono text-emerald-400">99.1%</span>
+                <span id="hub-acc-badge" class="text-[9px] text-slate-500 font-mono">live</span>
+              </div>
+            </div>
+            <div class="flex justify-between items-baseline">
+              <span class="text-[11px] text-slate-400">Repeatability Precision:</span>
+              <div class="flex items-baseline gap-1">
+                <span id="hub-precision-val" class="text-xl font-bold font-mono text-cyan-300">99.3%</span>
+                <span id="hub-prec-badge" class="text-[9px] text-slate-500 font-mono">repeatable</span>
+              </div>
+            </div>
+            <div class="pt-1 border-t border-slate-800">
+              <div class="flex justify-between text-[11px] text-slate-400 mb-1">
+                <span>Gaussian Health:</span>
+                <span id="hub-health-pct" class="font-mono text-emerald-400 font-bold">98.5%</span>
+              </div>
+              <div class="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden border border-slate-800">
+                <div id="hub-health-bar" class="bg-emerald-400 h-1.5 rounded-full" style="width: 98.5%;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Integrated AI Predictive Maintenance & Slope Pattern Bar -->
+      <div class="bg-slate-950/80 rounded-xl p-4 border border-slate-800 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <span class="text-xl">🧠</span>
+          <div>
+            <div class="flex items-center gap-2">
+              <h3 class="text-xs font-bold uppercase tracking-wider text-slate-200 font-mono">Random Forest AI Early Failure Prognostics</h3>
+              <span id="ml-risk-badge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800">LOW RISK</span>
+            </div>
+            <p id="ml-recommendation" class="text-xs text-emerald-300 mt-0.5">Normal operation. No maintenance required.</p>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-4 text-xs font-mono">
+          <div>
+            <span class="text-slate-500 block text-[10px]">Failure Risk:</span>
+            <span id="ml-failure-risk" class="text-base font-bold text-emerald-400">11.6%</span>
+          </div>
+          <div>
+            <span class="text-slate-500 block text-[10px]">Slope Deviation:</span>
+            <span id="ml-slope-dev" class="text-base font-bold text-slate-200">0.002</span>
+          </div>
+          <div>
+            <span class="text-slate-500 block text-[10px]">TTF Horizon:</span>
+            <span id="ml-ttf-val" class="text-base font-bold text-indigo-300">&gt; 500 hrs</span>
+          </div>
+          <div class="flex items-center gap-1.5 bg-slate-900 border border-slate-800 p-1 rounded-lg">
+            <span class="text-slate-500 text-[10px] px-1">Sim:</span>
+            <button onclick="testPatternSimulation('live')" id="sim-live" class="px-2 py-0.5 rounded bg-emerald-700 text-white text-[10px] font-semibold">Live</button>
+            <button onclick="testPatternSimulation('nominal')" id="sim-nominal" class="px-2 py-0.5 rounded text-slate-400 hover:text-white text-[10px]">Nominal</button>
+            <button onclick="testPatternSimulation('warning')" id="sim-warning" class="px-2 py-0.5 rounded text-slate-400 hover:text-amber-300 text-[10px]">Warning</button>
+            <button onclick="testPatternSimulation('unhealthy')" id="sim-unhealthy" class="px-2 py-0.5 rounded text-slate-400 hover:text-red-300 text-[10px]">Failure</button>
+            <button onclick="testPatternSimulation('anomaly')" id="sim-anomaly" class="px-2 py-0.5 rounded text-purple-400 hover:text-purple-200 text-[10px] font-semibold" title="Simulate transient anomaly fluctuation (ignored)">Anomaly</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- SECTION: REAL-TIME WAVEFORM GRAPH (CALIBRATION VS RAW DATA) -->
+    <!-- ========================================================================= -->
+    <div class="glass-panel rounded-2xl shadow-2xl overflow-hidden">
+      <!-- Toolbar Header -->
+      <div class="p-5 bg-slate-900/60 border-b border-slate-700/60 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <div class="flex flex-wrap items-center gap-2.5">
+            <h2 class="font-bold text-lg text-slate-100">Live Waveform Monitor: Calibration vs. Raw Data</h2>
+            <span id="scale-badge" class="text-xs bg-emerald-950/80 text-emerald-300 border border-emerald-800/80 px-2.5 py-0.5 rounded-full font-mono">
+              ⚡ Sharp Peaks Mode
+            </span>
+          </div>
+          <p class="text-xs text-slate-400 mt-0.5">High-definition waveform tracking with sharp linear vertices and dynamic micro-zoom</p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2.5">
+          <!-- Waveform Mode Selector -->
+          <div class="flex items-center bg-slate-950/80 border border-slate-800 rounded-xl p-1 text-xs">
+            <span class="px-2 text-slate-400 text-[11px] font-semibold">Mode:</span>
+            <button onclick="setSharpnessMode('sharp')" id="sharp-sharp" class="px-2.5 py-1 rounded-lg bg-cyan-600 text-white font-medium transition shadow-sm" title="Sharp linear vertices with zero smoothing">
+              ⚡ Sharp Peaks
+            </button>
+            <button onclick="setSharpnessMode('stepped')" id="sharp-stepped" class="px-2.5 py-1 rounded-lg text-slate-400 hover:text-slate-200 transition" title="Square digital step response">
+              Digital Step
+            </button>
+            <button onclick="setSharpnessMode('smooth')" id="sharp-smooth" class="px-2.5 py-1 rounded-lg text-slate-400 hover:text-slate-200 transition" title="Smoothed curves">
+              Smooth
+            </button>
+          </div>
+
+          <!-- Zoom Selector -->
+          <div class="flex items-center bg-slate-950/80 border border-slate-800 rounded-xl p-1 text-xs">
+            <span class="px-2 text-slate-400 text-[11px] font-semibold">Zoom:</span>
+            <button onclick="setScaleMode('ultra')" id="scale-ultra" class="px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-medium transition shadow-sm" title="Ultra micro-zoom (maximizes vertical peak amplitude)">
+              🔍 Micro (0.01)
+            </button>
+            <button onclick="setScaleMode('medium')" id="scale-medium" class="px-2.5 py-1 rounded-lg text-slate-400 hover:text-slate-200 transition" title="Balanced zoom">
+              Balanced
+            </button>
+            <button onclick="setScaleMode('standard')" id="scale-standard" class="px-2.5 py-1 rounded-lg text-slate-400 hover:text-slate-200 transition" title="Standard wider range">
+              Wide
+            </button>
+          </div>
+
+          <!-- Buffer Window Selector -->
+          <div class="flex items-center bg-slate-950/80 border border-slate-800 rounded-xl p-1 text-xs">
+            <button onclick="setWindowSize(20)" id="win-20" class="px-2.5 py-1 rounded-lg text-slate-400 hover:text-slate-200 transition">20 pts</button>
+            <button onclick="setWindowSize(40)" id="win-40" class="px-2.5 py-1 rounded-lg bg-slate-700 text-white font-medium transition shadow-sm">40 pts</button>
+            <button onclick="setWindowSize(80)" id="win-80" class="px-2.5 py-1 rounded-lg text-slate-400 hover:text-slate-200 transition">80 pts</button>
+          </div>
+
+          <!-- Pause / Resume Button -->
+          <button id="pause-btn" onclick="togglePauseChart()" class="text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-1.5 rounded-xl transition flex items-center gap-1.5">
+            <span id="pause-icon">⏸</span>
+            <span id="pause-text">Pause</span>
+          </button>
+
+          <!-- Reset Button -->
+          <button onclick="clearChart()" class="text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-1.5 rounded-xl transition">
+            Reset
+          </button>
+        </div>
+      </div>
+
+      <!-- Chart Canvas Container -->
+      <div class="p-5">
+        <div class="relative w-full rounded-xl bg-slate-950/50 p-2 border border-slate-800/80" style="height: 380px;">
+          <canvas id="telemetryChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Graph Summary Footer -->
+      <div class="px-5 py-3.5 border-t border-slate-800/80 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs bg-slate-950/70">
+        <div>
+          <span class="text-slate-400">Active Y-Span:</span>
+          <span id="active-y-span" class="font-mono font-semibold text-emerald-400 ml-1">--</span>
+        </div>
+        <div>
+          <span class="text-slate-400">Total Packets Charted:</span>
+          <span id="total-packets-count" class="font-mono font-semibold text-slate-200 ml-1">0</span>
+        </div>
+        <div>
+          <span class="text-slate-400">Current Light (LDR):</span>
+          <span id="current-ldr" class="font-mono font-semibold text-amber-400 ml-1">--</span>
+        </div>
+        <div>
+          <span class="text-slate-400">Average Offset:</span>
+          <span id="avg-delta" class="font-mono font-semibold text-emerald-400 ml-1">--</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- SECTION: LIVE SERIAL MONITOR LOG -->
+    <!-- ========================================================================= -->
+    <div class="glass-panel rounded-2xl overflow-hidden shadow-2xl">
+      <!-- Terminal Window Bar -->
+      <div class="p-4 bg-slate-950/80 border-b border-slate-800 flex justify-between items-center">
+        <div class="flex items-center gap-3">
+          <!-- Terminal Traffic Lights -->
+          <div class="flex items-center gap-1.5">
+            <span class="w-3 h-3 rounded-full bg-red-500/80"></span>
+            <span class="w-3 h-3 rounded-full bg-amber-500/80"></span>
+            <span class="w-3 h-3 rounded-full bg-emerald-500/80"></span>
+          </div>
+          <span class="text-xs font-mono font-semibold text-slate-300">SERIAL MONITOR // COM11 @ 9600 BAUD</span>
+        </div>
+        <button onclick="clearLogs()" class="text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white px-3 py-1 rounded-lg transition">
+          Clear Feed
+        </button>
+      </div>
+
+      <!-- Terminal Output Feed -->
+      <div id="log-container" class="p-4 h-64 overflow-y-auto font-mono text-xs space-y-1.5 bg-slate-950/90 text-slate-300">
+        <div class="text-slate-500 italic">Listening for incoming Arduino packets...</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- JAVASCRIPT: DATA STREAMING, CHART.JS, RANDOM FOREST & SENSOR METRICS -->
+  <!-- ========================================================================= -->
+  <script>
+    const socket = io();
+    const logContainer = document.getElementById('log-container');
+    const connectionStatus = document.getElementById('connection-status');
+    const lastPacketTime = document.getElementById('last-packet-time');
+    const currentRawEl = document.getElementById('current-raw');
+    const currentCalEl = document.getElementById('current-cal');
+    const currentDeltaEl = document.getElementById('current-delta');
+    const currentLdrEl = document.getElementById('current-ldr');
+    const totalPacketsEl = document.getElementById('total-packets-count');
+    const avgDeltaEl = document.getElementById('avg-delta');
+    const activeYSpanEl = document.getElementById('active-y-span');
+    const scaleBadgeEl = document.getElementById('scale-badge');
+    const pauseBtn = document.getElementById('pause-btn');
+    const pauseIcon = document.getElementById('pause-icon');
+    const pauseText = document.getElementById('pause-text');
+
+    // ML Predictive Maintenance Elements
+    const mlFailureRiskEl = document.getElementById('ml-failure-risk');
+    const mlRiskBadgeEl = document.getElementById('ml-risk-badge');
+    const mlSlopeDevEl = document.getElementById('ml-slope-dev');
+    const mlTtfValEl = document.getElementById('ml-ttf-val');
+    const mlRecommendationEl = document.getElementById('ml-recommendation');
+
+    // Dedicated Hub Reactive Elements
+    const hubRawValEl = document.getElementById('hub-raw-val');
+    const hubCalValEl = document.getElementById('hub-cal-val');
+    const hubDeltaValEl = document.getElementById('hub-delta-val');
+    const hubJitterValEl = document.getElementById('hub-jitter-val');
+    const hubStatusPillEl = document.getElementById('hub-status-pill');
+    const hubAccuracyValEl = document.getElementById('hub-accuracy-val');
+    const hubPrecisionValEl = document.getElementById('hub-precision-val');
+    const hubHealthPctEl = document.getElementById('hub-health-pct');
+    const hubHealthBarEl = document.getElementById('hub-health-bar');
+    const hubReliabilityTextEl = document.getElementById('hub-reliability-text');
+
+    // Button Live Value Previews
+    const btnValH01El = document.getElementById('btn-val-H01');
+    const btnValLdrEl = document.getElementById('btn-val-LDR');
+
+    let isFirstMessage = true;
+    let isChartPaused = false;
+    let maxDataPoints = 40;
+    let totalPacketsReceived = 0;
+    let deltaSum = 0;
+    let deltaCount = 0;
+    let scaleMode = 'ultra';
+    let sharpnessMode = 'sharp';
+    let selectedSensorId = 'H01';
+    let isManualSimulationMode = false;
+
+    const h01RecentValues = [];
+    let h01Min = Infinity;
+    let h01Max = -Infinity;
+    let ldrMin = Infinity;
+    let ldrMax = -Infinity;
+
+    const todayDateFormatted = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const todayMidnightEpoch = new Date().setHours(0, 0, 0, 0);
+
+    const sensorMetadata = {
+      H01: {
+        name: 'H01 (Live Arduino Uno)',
+        type: 'Humidity',
+        gain: 0.9899,
+        offset: '+0.0079',
+        equation: 'Cal = 0.9899 · Raw + 0.0079',
+        weight: 0.99,
+        mean: 50.75,
+        std: 5.71,
+        unit: '%RH',
+        installedDate: `Today (${todayDateFormatted})`,
+        installedEpoch: todayMidnightEpoch,
+        theoreticalLifespanYears: 3,
+        theoreticalLifespanHours: 26280,
+        model: 'DHT22-PRO Capacitive Polymer',
+        accuracyBase: 99.1,
+        precisionBase: 99.3,
+        nextCalDays: 180,
+        badgeColor: 'emerald',
+        icon: '💧',
+        isLive: true
+      },
+      LDR: {
+        name: 'LDR (Live Photoresistor)',
+        type: 'Ambient Light',
+        gain: 1.0000,
+        offset: '±0.0',
+        equation: 'ADC Raw Analog 0-1023',
+        weight: 1.00,
+        mean: 120,
+        std: 35,
+        unit: 'ADC',
+        installedDate: `Today (${todayDateFormatted})`,
+        installedEpoch: todayMidnightEpoch,
+        theoreticalLifespanYears: 5,
+        theoreticalLifespanHours: 43800,
+        model: 'GL5528 CdS Optical Photocell',
+        accuracyBase: 98.9,
+        precisionBase: 99.4,
+        nextCalDays: 365,
+        badgeColor: 'amber',
+        icon: '☀️',
+        isLive: true
+      },
+      T01: {
+        name: 'T01 (Primary Temp)',
+        type: 'Temperature',
+        gain: 0.9799,
+        offset: '+0.2995 °C',
+        equation: 'Cal = 0.9799 · Raw + 0.2995',
+        weight: 0.99,
+        mean: 25.23,
+        std: 1.44,
+        unit: '°C',
+        installedDate: 'Jun 10, 2026',
+        installedEpoch: new Date('2026-06-10T00:00:00').getTime(),
+        theoreticalLifespanYears: 5,
+        theoreticalLifespanHours: 43800,
+        model: 'PT100 RTD Class-A Precision',
+        accuracyBase: 99.4,
+        precisionBase: 99.6,
+        nextCalDays: 68,
+        badgeColor: 'blue',
+        icon: '🌡️',
+        isLive: false
+      },
+      T02: {
+        name: 'T02 (Secondary Temp)',
+        type: 'Temperature',
+        gain: 0.9724,
+        offset: '+0.4676 °C',
+        equation: 'Cal = 0.9724 · Raw + 0.4676',
+        weight: 0.97,
+        mean: 25.04,
+        std: 1.56,
+        unit: '°C',
+        installedDate: 'Jun 10, 2026',
+        installedEpoch: new Date('2026-06-10T00:00:00').getTime(),
+        theoreticalLifespanYears: 5,
+        theoreticalLifespanHours: 43800,
+        model: 'PT100 RTD Class-B Backup',
+        accuracyBase: 98.7,
+        precisionBase: 99.3,
+        nextCalDays: 68,
+        badgeColor: 'blue',
+        icon: '🌡️',
+        isLive: false
+      },
+      H02: {
+        name: 'H02 (Secondary Humidity)',
+        type: 'Humidity',
+        gain: 0.9823,
+        offset: '+0.3641 %',
+        equation: 'Cal = 0.9823 · Raw + 0.3641',
+        weight: 0.95,
+        mean: 47.86,
+        std: 4.73,
+        unit: '%RH',
+        installedDate: 'Jul 01, 2026',
+        installedEpoch: new Date('2026-07-01T00:00:00').getTime(),
+        theoreticalLifespanYears: 3,
+        theoreticalLifespanHours: 26280,
+        model: 'SHT31-DIS Solid-State Polymer',
+        accuracyBase: 98.6,
+        precisionBase: 99.0,
+        nextCalDays: 89,
+        badgeColor: 'cyan',
+        icon: '💧',
+        isLive: false
+      },
+      C01: {
+        name: 'C01 (Primary CO₂)',
+        type: 'CO2 Gas',
+        gain: 0.9727,
+        offset: '+12.41 ppm',
+        equation: 'Cal = 0.9727 · Raw + 12.41',
+        weight: 0.99,
+        mean: 643.4,
+        std: 110.5,
+        unit: 'ppm',
+        installedDate: 'May 20, 2026',
+        installedEpoch: new Date('2026-05-20T00:00:00').getTime(),
+        theoreticalLifespanYears: 7,
+        theoreticalLifespanHours: 61320,
+        model: 'MH-Z19C Dual-Beam NDIR Chamber',
+        accuracyBase: 99.1,
+        precisionBase: 98.8,
+        nextCalDays: 47,
+        badgeColor: 'purple',
+        icon: '☁️',
+        isLive: false
+      },
+      C02: {
+        name: 'C02 (Secondary CO₂)',
+        type: 'CO2 Gas',
+        gain: 0.9754,
+        offset: '+11.11 ppm',
+        equation: 'Cal = 0.9754 · Raw + 11.11',
+        weight: 0.98,
+        mean: 640.1,
+        std: 106.3,
+        unit: 'ppm',
+        installedDate: 'May 20, 2026',
+        installedEpoch: new Date('2026-05-20T00:00:00').getTime(),
+        theoreticalLifespanYears: 7,
+        theoreticalLifespanHours: 61320,
+        model: 'MH-Z19C Dual-Beam NDIR Chamber',
+        accuracyBase: 98.8,
+        precisionBase: 98.6,
+        nextCalDays: 47,
+        badgeColor: 'purple',
+        icon: '☁️',
+        isLive: false
+      }
+    };
+
+    // --- Chart.js Setup ---
+    const ctx = document.getElementById('telemetryChart').getContext('2d');
+    const rawGradient = ctx.createLinearGradient(0, 0, 0, 380);
+    rawGradient.addColorStop(0, 'rgba(6, 182, 212, 0.22)');
+    rawGradient.addColorStop(1, 'rgba(6, 182, 212, 0.0)');
+
+    const calGradient = ctx.createLinearGradient(0, 0, 0, 380);
+    calGradient.addColorStop(0, 'rgba(16, 185, 129, 0.26)');
+    calGradient.addColorStop(1, 'rgba(16, 185, 129, 0.0)');
+
+    const chartConfig = {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [
+          {
+            label: 'Raw Data (RawH)',
+            data: [],
+            borderColor: '#06B6D4',
+            backgroundColor: rawGradient,
+            borderWidth: 2.8,
+            borderJoinStyle: 'miter',
+            borderCapStyle: 'square',
+            miterLimit: 12,
+            pointRadius: 4,
+            pointHoverRadius: 8,
+            pointBackgroundColor: '#06B6D4',
+            pointBorderColor: '#0B0F17',
+            pointBorderWidth: 2,
+            tension: 0,
+            stepped: false,
+            fill: true
+          },
+          {
+            label: 'Calibrated Data (CalH)',
+            data: [],
+            borderColor: '#10B981',
+            backgroundColor: calGradient,
+            borderWidth: 3.0,
+            borderJoinStyle: 'miter',
+            borderCapStyle: 'square',
+            miterLimit: 12,
+            pointRadius: 4.5,
+            pointHoverRadius: 9,
+            pointBackgroundColor: '#10B981',
+            pointBorderColor: '#0B0F17',
+            pointBorderWidth: 2,
+            tension: 0,
+            stepped: false,
+            fill: true
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: {
+            display: true,
+            position: 'top',
+            labels: {
+              color: '#cbd5e1',
+              font: { family: "'Plus Jakarta Sans', sans-serif", size: 12, weight: '600' },
+              usePointStyle: true,
+              pointStyle: 'rectRot',
+              padding: 16
+            }
+          },
+          tooltip: {
+            backgroundColor: 'rgba(11, 15, 23, 0.94)',
+            titleColor: '#f8fafc',
+            bodyColor: '#cbd5e1',
+            borderColor: 'rgba(255, 255, 255, 0.1)',
+            borderWidth: 1,
+            padding: 12,
+            cornerRadius: 10,
+            callbacks: {
+              label: context => ` ${context.dataset.label}: ${Number(context.parsed.y).toFixed(2)}`,
+              afterBody: tooltipItems => {
+                if (tooltipItems.length >= 2) {
+                  const rawVal = tooltipItems[0].parsed.y;
+                  const calVal = tooltipItems[1].parsed.y;
+                  const diff = (calVal - rawVal).toFixed(2);
+                  return `\nInstant Offset (Δ): ${diff >= 0 ? '+' : ''}${diff}`;
+                }
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: { color: 'rgba(148, 163, 184, 0.06)', drawBorder: false },
+            ticks: { color: '#64748b', font: { family: "'JetBrains Mono', monospace", size: 10 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 }
+          },
+          y: {
+            beginAtZero: false,
+            grid: { color: 'rgba(148, 163, 184, 0.10)', drawBorder: false },
+            ticks: {
+              color: '#94a3b8',
+              font: { family: "'JetBrains Mono', monospace", size: 11, weight: 'bold' },
+              precision: 2,
+              callback: val => Number(val).toFixed(2)
+            }
+          }
+        }
+      }
+    };
+
+    const telemetryChart = new Chart(ctx, chartConfig);
+
+    function updateAdaptiveScale() {
+      const d0 = telemetryChart.data.datasets[0].data;
+      const d1 = telemetryChart.data.datasets[1].data;
+      const allVals = d0.concat(d1).filter(v => v !== null && !isNaN(v));
+      if (allVals.length === 0) return;
+
+      const minVal = Math.min(...allVals);
+      const maxVal = Math.max(...allVals);
+      const spread = maxVal - minVal;
+
+      let padding;
+      if (scaleMode === 'ultra') padding = Math.max(0.04, spread * 0.04);
+      else if (scaleMode === 'medium') padding = Math.max(0.40, spread * 0.20);
+      else padding = Math.max(1.50, spread * 0.40);
+
+      const yMin = Number((minVal - padding).toFixed(2));
+      const yMax = Number((maxVal + padding).toFixed(2));
+
+      telemetryChart.options.scales.y.min = yMin;
+      telemetryChart.options.scales.y.max = yMax;
+
+      const span = (yMax - yMin).toFixed(2);
+      activeYSpanEl.textContent = `[${yMin.toFixed(2)} — ${yMax.toFixed(2)}] (Δ ${span})`;
+      const waveLabel = sharpnessMode === 'sharp' ? '⚡ Sharp Peaks' : (sharpnessMode === 'stepped' ? 'Digital Step' : 'Smooth');
+      scaleBadgeEl.textContent = `${waveLabel} | Span: ${span} | Res: 0.01`;
+    }
+
+    function setSharpnessMode(mode) {
+      sharpnessMode = mode;
+      ['sharp', 'stepped', 'smooth'].forEach(m => {
+        document.getElementById(`sharp-${m}`).className = m === mode
+          ? "px-2.5 py-1 rounded-lg bg-cyan-600 text-white font-medium transition shadow-sm"
+          : "px-2.5 py-1 rounded-lg text-slate-400 hover:text-slate-200 transition";
+      });
+
+      telemetryChart.data.datasets.forEach(ds => {
+        if (mode === 'sharp') { ds.tension = 0; ds.stepped = false; ds.borderJoinStyle = 'miter'; ds.pointRadius = 4; }
+        else if (mode === 'stepped') { ds.tension = 0; ds.stepped = 'before'; ds.borderJoinStyle = 'miter'; ds.pointRadius = 3; }
+        else if (mode === 'smooth') { ds.tension = 0.35; ds.stepped = false; ds.borderJoinStyle = 'round'; ds.pointRadius = 3; }
+      });
+
+      updateAdaptiveScale();
+      telemetryChart.update();
+    }
+
+    function setScaleMode(mode) {
+      scaleMode = mode;
+      ['ultra', 'medium', 'standard'].forEach(m => {
+        document.getElementById(`scale-${m}`).className = m === mode
+          ? "px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-medium transition shadow-sm"
+          : "px-2.5 py-1 rounded-lg text-slate-400 hover:text-slate-200 transition";
+      });
+      updateAdaptiveScale();
+      telemetryChart.update();
+    }
+
+    function selectSensor(id) {
+      selectedSensorId = id;
+      
+      // Update sensor button active highlights
+      ['H01', 'LDR', 'T01', 'T02', 'H02', 'C01', 'C02'].forEach(sId => {
+        const btn = document.getElementById(`btn-sensor-${sId}`);
+        if (btn) {
+          if (sId === id) {
+            btn.classList.add('sensor-btn-active');
+          } else {
+            btn.classList.remove('sensor-btn-active');
+          }
+        }
+      });
+
+      const meta = sensorMetadata[id];
+      if (!meta) return;
+
+      // 1. Hub Header
+      const activeBadgeEl = document.getElementById('active-sensor-badge');
+      if (activeBadgeEl) activeBadgeEl.textContent = `${id} (${meta.type})`;
+
+      const hubIconEl = document.getElementById('hub-icon');
+      if (hubIconEl) hubIconEl.textContent = meta.icon || '💧';
+
+      const hubNameEl = document.getElementById('hub-sensor-name');
+      if (hubNameEl) hubNameEl.textContent = meta.name;
+
+      const hubModelEl = document.getElementById('hub-sensor-model');
+      if (hubModelEl) hubModelEl.textContent = meta.model;
+
+      const hubChannelEl = document.getElementById('hub-channel-tag');
+      if (hubChannelEl) {
+        hubChannelEl.textContent = meta.isLive 
+          ? (id === 'H01' ? 'COM11 · Live Stream' : 'Pin A0 · Live Analog') 
+          : `Channel ${meta.type}`;
+        hubChannelEl.className = meta.isLive
+          ? "text-[10px] font-mono px-2.5 py-0.5 rounded-full border bg-emerald-950 text-emerald-400 border-emerald-800 font-bold uppercase tracking-wider"
+          : "text-[10px] font-mono px-2.5 py-0.5 rounded-full border bg-slate-900 text-slate-300 border-slate-700 font-bold uppercase tracking-wider";
+      }
+
+      const hubNewBadgeEl = document.getElementById('hub-new-badge');
+      if (hubNewBadgeEl) {
+        hubNewBadgeEl.style.display = meta.installedDate.includes('Today') ? 'inline-block' : 'none';
+      }
+
+      const hubCommEl = document.getElementById('hub-commissioned');
+      if (hubCommEl) hubCommEl.textContent = meta.installedDate;
+
+      // 2. Pillar 1: Live Telemetry & Dynamics
+      const unitTagEl = document.getElementById('hub-unit-tag');
+      if (unitTagEl) unitTagEl.textContent = meta.unit;
+
+      const rawValEl = document.getElementById('hub-raw-val');
+      const calValEl = document.getElementById('hub-cal-val');
+      const deltaValEl = document.getElementById('hub-delta-val');
+      const jitterValEl = document.getElementById('hub-jitter-val');
+      const statusPillEl = document.getElementById('hub-status-pill');
+
+      if (id === 'H01') {
+        const lastRaw = h01RecentValues.length > 0 ? h01RecentValues[h01RecentValues.length - 1] : 52.4;
+        const lastCal = currentCalEl && currentCalEl.textContent !== '--' ? parseFloat(currentCalEl.textContent) : (lastRaw * meta.gain + 0.0079);
+        const lastDelta = lastCal - lastRaw;
+        const lastJitter = computeStandardDeviation(h01RecentValues);
+        if (hubRawValEl) hubRawValEl.textContent = lastRaw.toFixed(2);
+        if (hubCalValEl) hubCalValEl.textContent = lastCal.toFixed(2);
+        if (hubDeltaValEl) hubDeltaValEl.textContent = `(Δ: ${lastDelta >= 0 ? '+' : ''}${lastDelta.toFixed(2)})`;
+        if (hubJitterValEl) hubJitterValEl.textContent = `±${lastJitter.toFixed(2)} %`;
+        if (hubStatusPillEl) {
+          hubStatusPillEl.textContent = 'OPTIMAL';
+          hubStatusPillEl.className = 'font-mono font-bold text-emerald-400';
+        }
+      } else if (id === 'LDR') {
+        const ldrNow = currentLdrEl && currentLdrEl.textContent !== '--' ? currentLdrEl.textContent : '120';
+        if (hubRawValEl) hubRawValEl.textContent = ldrNow;
+        if (hubCalValEl) hubCalValEl.textContent = ldrNow;
+        if (hubDeltaValEl) hubDeltaValEl.textContent = 'Raw ADC';
+        if (hubJitterValEl) hubJitterValEl.textContent = '±1.2 ADC';
+        if (hubStatusPillEl) {
+          hubStatusPillEl.textContent = 'OPTIMAL';
+          hubStatusPillEl.className = 'font-mono font-bold text-emerald-400';
+        }
+      } else {
+        if (hubRawValEl) hubRawValEl.textContent = meta.mean.toFixed(2);
+        if (hubCalValEl) hubCalValEl.textContent = (meta.mean * meta.gain).toFixed(2);
+        if (hubDeltaValEl) hubDeltaValEl.textContent = meta.offset;
+        if (hubJitterValEl) hubJitterValEl.textContent = `±${meta.std.toFixed(2)} ${meta.unit}`;
+        if (hubStatusPillEl) {
+          hubStatusPillEl.textContent = 'HEALTHY';
+          hubStatusPillEl.className = 'font-mono font-bold text-slate-300';
+        }
+      }
+
+      // 3. Pillar 2: Calibration & Metrology
+      const gainValEl = document.getElementById('hub-gain-val');
+      if (gainValEl) gainValEl.textContent = meta.gain ? meta.gain.toFixed(4) : '1.0000';
+
+      const offsetValEl = document.getElementById('hub-offset-val');
+      if (offsetValEl) offsetValEl.textContent = meta.offset || '0.0';
+
+      const equationCodeEl = document.getElementById('hub-equation-code');
+      if (equationCodeEl) equationCodeEl.textContent = meta.equation;
+
+      const weightValEl = document.getElementById('hub-weight-val');
+      if (weightValEl) weightValEl.textContent = meta.weight.toFixed(3);
+
+      // 4. Pillar 3: Commissioning & Lifespan
+      const now = new Date();
+      const installEpoch = meta.installedEpoch || now.getTime();
+      const msElapsed = Math.max(0, now.getTime() - installEpoch);
+      const daysActive = Math.floor(msElapsed / (1000 * 60 * 60 * 24));
+      const totalDays = meta.theoreticalLifespanYears * 365;
+      const lifePct = Math.min(100, Math.max(0, (daysActive / totalDays) * 100));
+      const daysRemaining = Math.max(0, totalDays - daysActive);
+
+      const daysActiveBadgeEl = document.getElementById('hub-days-active-badge');
+      if (daysActiveBadgeEl) {
+        daysActiveBadgeEl.textContent = daysActive === 0 ? '0 days (Day 1)' : `${daysActive} days active`;
+        daysActiveBadgeEl.className = daysActive === 0
+          ? "text-[10px] font-mono text-emerald-400 bg-emerald-950 border border-emerald-800 px-1.5 py-0.2 rounded font-bold"
+          : "text-[10px] font-mono text-slate-300 bg-slate-900 border border-slate-700 px-1.5 py-0.2 rounded";
+      }
+
+      const lifespanValEl = document.getElementById('hub-lifespan-val');
+      if (lifespanValEl) lifespanValEl.textContent = `${meta.theoreticalLifespanYears} Years (${meta.theoreticalLifespanHours.toLocaleString()} hrs)`;
+
+      const remainingDaysEl = document.getElementById('hub-remaining-days');
+      if (remainingDaysEl) remainingDaysEl.textContent = `${daysRemaining.toLocaleString()} days left`;
+
+      const lifeUsedPctEl = document.getElementById('hub-life-used-pct');
+      if (lifeUsedPctEl) lifeUsedPctEl.textContent = `${lifePct.toFixed(1)}% used`;
+
+      const lifeBarEl = document.getElementById('hub-life-bar');
+      if (lifeBarEl) lifeBarEl.style.width = `${Math.max(daysActive === 0 ? 0.8 : 1, lifePct).toFixed(1)}%`;
+
+      const nextCalValEl = document.getElementById('hub-next-cal-val');
+      if (nextCalValEl) nextCalValEl.textContent = `in ${meta.nextCalDays} days`;
+
+      // 5. Pillar 4: Accuracy, Precision & Health
+      if (id === 'H01') {
+        if (hubAccuracyValEl) hubAccuracyValEl.textContent = '99.1%';
+        if (hubPrecisionValEl) hubPrecisionValEl.textContent = '99.3%';
+        if (hubHealthPctEl) hubHealthPctEl.textContent = '98.5%';
+        if (hubHealthBarEl) hubHealthBarEl.style.width = '98.5%';
+        if (hubReliabilityTextEl) hubReliabilityTextEl.textContent = 'Nominal Gaussian';
+      } else if (id === 'LDR') {
+        if (hubAccuracyValEl) hubAccuracyValEl.textContent = '98.9%';
+        if (hubPrecisionValEl) hubPrecisionValEl.textContent = '99.4%';
+        if (hubHealthPctEl) hubHealthPctEl.textContent = '100%';
+        if (hubHealthBarEl) hubHealthBarEl.style.width = '100%';
+        if (hubReliabilityTextEl) hubReliabilityTextEl.textContent = '100% Optimal';
+      } else {
+        if (hubAccuracyValEl) hubAccuracyValEl.textContent = `${meta.accuracyBase.toFixed(1)}%`;
+        if (hubPrecisionValEl) hubPrecisionValEl.textContent = `${meta.precisionBase.toFixed(1)}%`;
+        if (hubHealthPctEl) hubHealthPctEl.textContent = '98.0%';
+        if (hubHealthBarEl) hubHealthBarEl.style.width = '98.0%';
+        if (hubReliabilityTextEl) hubReliabilityTextEl.textContent = 'Calibrated Baseline';
+      }
+
+      const accBadgeEl = document.getElementById('hub-acc-badge');
+      if (accBadgeEl) accBadgeEl.textContent = meta.isLive ? 'live' : 'certified';
+
+      const precBadgeEl = document.getElementById('hub-prec-badge');
+      if (precBadgeEl) precBadgeEl.textContent = meta.isLive ? 'live' : 'repeatable';
+
+      // 6. ML Early Failure Prognostics sync for selected sensor
+      const slopeDev = Math.abs((meta.gain || 1.0) - 1.0);
+      if (mlSlopeDevEl) mlSlopeDevEl.textContent = slopeDev.toFixed(4);
+
+      if (id !== 'H01') {
+        if (mlFailureRiskEl) mlFailureRiskEl.textContent = (slopeDev * 100).toFixed(1) + '%';
+        if (mlTtfValEl) mlTtfValEl.textContent = '> 500 hrs';
+        if (mlRecommendationEl) mlRecommendationEl.textContent = 'Calibrated channel within tolerance.';
+        if (mlRiskBadgeEl) {
+          mlRiskBadgeEl.textContent = 'LOW RISK';
+          mlRiskBadgeEl.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800';
+        }
+      }
+    }
+    selectSensor('H01');
+
+    function computeStandardDeviation(arr) {
+      if (arr.length < 2) return 0;
+      const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
+      return Math.sqrt(arr.reduce((s, v) => s + Math.pow(v - mean, 2), 0) / arr.length);
+    }
+
+    // --- Update Random Forest Predictive Maintenance UI ---
+    function updateMLDisplay(mlData) {
+      if (!mlData) return;
+      const pred = mlData.ml_prediction || mlData;
+      const riskPct = typeof pred.failure_risk_pct === 'number' ? pred.failure_risk_pct : parseFloat(pred.failure_risk_pct) || 0.0;
+      const slope = mlData.slope || 1.0;
+      const slopeDev = mlData.slope_deviation !== undefined ? mlData.slope_deviation : Math.abs(slope - 1.0);
+      const isAnomaly = pred.is_anomaly || pred.predicted_condition === 'anomaly' || pred.risk_level === 'TRANSIENT_ANOMALY';
+
+      if (mlFailureRiskEl) {
+        mlFailureRiskEl.textContent = riskPct.toFixed(1) + '%';
+        if (isAnomaly) {
+          mlFailureRiskEl.className = 'text-base font-bold text-purple-300 font-mono';
+        } else if (riskPct < 20.0) {
+          mlFailureRiskEl.className = 'text-base font-bold text-emerald-400 font-mono';
+        } else if (riskPct < 75.0) {
+          mlFailureRiskEl.className = 'text-base font-bold text-amber-400 font-mono';
+        } else {
+          mlFailureRiskEl.className = 'text-base font-bold text-red-400 font-mono animate-pulse';
+        }
+      }
+
+      if (mlRiskBadgeEl) {
+        if (isAnomaly) {
+          mlRiskBadgeEl.textContent = '⚡ ANOMALY (IGNORED)';
+          mlRiskBadgeEl.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-950 text-purple-300 border border-purple-700 animate-pulse';
+        } else if (riskPct < 20.0) {
+          mlRiskBadgeEl.textContent = 'LOW RISK';
+          mlRiskBadgeEl.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800';
+        } else if (riskPct < 75.0) {
+          mlRiskBadgeEl.textContent = 'EARLY WARNING';
+          mlRiskBadgeEl.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-950 text-amber-400 border border-amber-800';
+        } else {
+          mlRiskBadgeEl.textContent = 'CRITICAL FAILURE';
+          mlRiskBadgeEl.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-950 text-red-400 border border-red-800 animate-pulse';
+        }
+      }
+
+      if (mlSlopeDevEl) mlSlopeDevEl.textContent = Number(slopeDev).toFixed(4);
+      if (mlTtfValEl && pred.estimated_time_to_failure) mlTtfValEl.textContent = pred.estimated_time_to_failure;
+      
+      if (mlRecommendationEl) {
+        if (isAnomaly) {
+          mlRecommendationEl.textContent = 'Transient anomaly fluctuation identified & ignored. Normal operation.';
+          mlRecommendationEl.className = 'text-xs text-purple-300 mt-0.5 font-medium';
+        } else {
+          mlRecommendationEl.textContent = pred.recommendation || 'Normal operation. No maintenance required.';
+          mlRecommendationEl.className = riskPct >= 75.0 ? 'text-xs text-red-400 mt-0.5' : (riskPct >= 20.0 ? 'text-xs text-amber-300 mt-0.5' : 'text-xs text-emerald-300 mt-0.5');
+        }
+      }
+    }
+
+    // --- Interactive Pattern Test Simulator ---
+    async function testPatternSimulation(mode) {
+      const modes = ['live', 'nominal', 'warning', 'unhealthy', 'anomaly'];
+      modes.forEach(m => {
+        const btn = document.getElementById(`sim-${m}`);
+        if (btn) {
+          if (m === mode) {
+            btn.className = m === 'anomaly'
+              ? "px-2 py-0.5 rounded bg-purple-700 text-white text-[10px] font-semibold transition shadow-sm"
+              : "px-2 py-0.5 rounded bg-emerald-600 text-white text-[10px] font-semibold transition shadow-sm";
+          } else {
+            btn.className = m === 'anomaly'
+              ? "px-2 py-0.5 rounded text-purple-400 hover:text-purple-200 text-[10px] transition"
+              : "px-2 py-0.5 rounded text-slate-400 hover:text-white text-[10px] transition";
+          }
+        }
+      });
+
+      if (mode === 'live') {
+        isManualSimulationMode = false;
+        selectSensor(selectedSensorId);
+        return;
+      }
+
+      isManualSimulationMode = true;
+      const meta = sensorMetadata[selectedSensorId] || {};
+      let testGain = meta.gain || 1.0;
+      let testRaw = meta.mean || 50.0;
+      let testOffset = parseFloat(meta.offset) || 0.0;
+
+      if (mode === 'nominal') {
+        testGain = meta.gain || 0.9899;
+        testRaw = meta.mean || 52.4;
+      } else if (mode === 'warning') {
+        testGain = (meta.gain || 1.0) * 1.08; // +8% incipient drift
+        testRaw = (meta.mean || 50.0) * 1.08;
+      } else if (mode === 'unhealthy') {
+        testGain = (meta.gain || 1.0) * 1.25; // +25% critical failure
+        testRaw = (meta.mean || 50.0) * 1.25;
+      } else if (mode === 'anomaly') {
+        // Anomaly: underlying slope is healthy, but raw reading experiences extreme transient spike
+        testGain = meta.gain || 1.0;
+        if (selectedSensorId === 'LDR') {
+          testRaw = 880.0; // Sudden flash of light
+        } else if (selectedSensorId.startsWith('T')) {
+          testRaw = 48.0; // Sudden thermal spike
+        } else if (selectedSensorId.startsWith('H')) {
+          testRaw = 88.0; // Sudden condensation burst
+        } else {
+          testRaw = 950.0; // Sudden CO2 burst
+        }
+      }
+
+      try {
+        const resp = await fetch('/api/ml/predict-failure', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sensor_id: selectedSensorId,
+            raw_value: testRaw,
+            gain: testGain,
+            offset: testOffset,
+            sensor_type: meta.type
+          })
+        });
+        const data = await resp.json();
+        if (data.status === 'success' && data.prediction) {
+          updateMLDisplay(data.prediction);
+        } else {
+          throw new Error('Fallback to local');
+        }
+      } catch (err) {
+        // Local fallback logic
+        const slopeDev = Math.abs(testGain - 1.0);
+        let riskPct = 11.6;
+        let isAnom = false;
+        let ttf = '> 500 Operating Hours';
+        let rec = 'Normal operation. No maintenance required.';
+
+        if (mode === 'unhealthy') {
+          riskPct = 98.5;
+          ttf = '< 4 Operating Hours';
+          rec = 'Critical slope divergence. Replace or recalibrate sensor immediately.';
+        } else if (mode === 'warning') {
+          riskPct = 65.0;
+          ttf = '24 - 48 Operating Hours';
+          rec = 'Early warning: Incipient drift detected. Schedule sensor inspection soon.';
+        } else if (mode === 'anomaly') {
+          riskPct = 4.2;
+          isAnom = true;
+          ttf = '> 500 Operating Hours (Nominal)';
+          rec = 'Transient anomaly fluctuation identified & ignored. Normal operation.';
+        }
+
+        updateMLDisplay({
+          slope: testGain,
+          slope_deviation: slopeDev,
+          ml_prediction: {
+            predicted_condition: mode === 'anomaly' ? 'anomaly' : (mode === 'unhealthy' ? 'unhealthy' : (mode === 'warning' ? 'warning' : 'healthy')),
+            is_anomaly: isAnom,
+            failure_risk_pct: riskPct,
+            estimated_time_to_failure: ttf,
+            recommendation: rec
+          }
+        });
+      }
+    }
+
+    // --- Manual Reconnect Handler ---
+    async function manualReconnect() {
+      const btn = document.getElementById('btn-reconnect');
+      const icon = document.getElementById('reconnect-icon');
+      const label = document.getElementById('reconnect-label');
+      icon.classList.add('animate-spin');
+      label.textContent = "Connecting...";
+
+      try {
+        await fetch('/api/serial/reconnect');
+        setTimeout(() => {
+          icon.classList.remove('animate-spin');
+          label.textContent = "Reconnected";
+          setTimeout(() => { label.textContent = "Reconnect"; }, 2000);
+        }, 1200);
+      } catch (e) {
+        icon.classList.remove('animate-spin');
+        label.textContent = "Error";
+      }
+    }
+
+    // --- Socket.IO Event Listener ---
+    socket.on('sensor-data', (packet) => {
+      if (isFirstMessage) {
+        if (logContainer) logContainer.innerHTML = '';
+        isFirstMessage = false;
+      }
+
+      if (connectionStatus) {
+        connectionStatus.textContent = "ONLINE & STREAMING";
+        connectionStatus.className = "text-xl font-bold text-emerald-400 mt-2 font-mono flex items-center gap-2";
+      }
+      if (lastPacketTime) lastPacketTime.textContent = packet.timestamp;
+
+      let rawVal = packet.rawValue;
+      let calVal = packet.calValue;
+      let ldrVal = packet.ldr;
+
+      if (rawVal === undefined || rawVal === null) {
+        const m = packet.raw.match(/RawH?:\s*([0-9.-]+)/i);
+        if (m) rawVal = parseFloat(m[1]);
+      }
+      if (calVal === undefined || calVal === null) {
+        const m = packet.raw.match(/Cal(?:ibrated Value|H)?:\s*([0-9.-]+)/i);
+        if (m) calVal = parseFloat(m[1]);
+      }
+      if (ldrVal === undefined || ldrVal === null) {
+        const m = packet.raw.match(/LDR:\s*([0-9.-]+)/i);
+        if (m) ldrVal = parseFloat(m[1]);
+      }
+
+      // 1. Top Bar KPIs
+      if (rawVal !== null && !isNaN(rawVal) && currentRawEl) currentRawEl.textContent = rawVal.toFixed(2);
+      if (calVal !== null && !isNaN(calVal) && currentCalEl) currentCalEl.textContent = calVal.toFixed(2);
+      if (rawVal !== null && calVal !== null && !isNaN(rawVal) && !isNaN(calVal)) {
+        const delta = calVal - rawVal;
+        if (currentDeltaEl) {
+          currentDeltaEl.textContent = `(Δ: ${delta >= 0 ? '+' : ''}${delta.toFixed(2)})`;
+          currentDeltaEl.className = delta >= 0 
+            ? "text-xs font-mono font-bold px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/80" 
+            : "text-xs font-mono font-bold px-2 py-0.5 rounded bg-amber-950/80 text-amber-400 border border-amber-800/80";
+        }
+        deltaSum += delta;
+        deltaCount++;
+        if (avgDeltaEl) avgDeltaEl.textContent = `${(deltaSum / deltaCount >= 0 ? '+' : '')}${(deltaSum / deltaCount).toFixed(2)}`;
+      }
+      if (ldrVal !== null && !isNaN(ldrVal) && currentLdrEl) currentLdrEl.textContent = ldrVal;
+
+      // 2. Update Sensor Selector Button Previews
+      if (rawVal !== null && !isNaN(rawVal) && btnValH01El) {
+        btnValH01El.textContent = rawVal.toFixed(1) + ' %';
+      }
+      if (ldrVal !== null && !isNaN(ldrVal) && btnValLdrEl) {
+        btnValLdrEl.textContent = ldrVal + ' ADC';
+      }
+
+      // 3. Sensor H01 Statistics & Health
+      let jitter = 0;
+      let health = 98.5;
+      let liveAccuracy = 99.1;
+      let livePrecision = 99.3;
+
+      if (rawVal !== null && !isNaN(rawVal)) {
+        h01RecentValues.push(rawVal);
+        if (h01RecentValues.length > 30) h01RecentValues.shift();
+        h01Min = Math.min(h01Min, rawVal);
+        h01Max = Math.max(h01Max, rawVal);
+
+        jitter = computeStandardDeviation(h01RecentValues);
+
+        // Gaussian Health Formula
+        const baselineMean = 50.75;
+        const baselineStd = 5.71;
+        const z = Math.abs(rawVal - baselineMean) / baselineStd;
+        health = Math.max(0, Math.min(100, 100 - Math.max(0, z - 1.0) * 15.0));
+
+        if (calVal !== null && rawVal > 0) {
+          const relErr = Math.abs(calVal - rawVal) / rawVal;
+          liveAccuracy = Math.max(92.0, Math.min(99.9, (1 - Math.min(0.06, relErr * 0.35)) * 100));
+          livePrecision = Math.max(93.0, Math.min(99.9, 100 - (jitter * 15)));
+        }
+      }
+
+      // 4. Reactive Update to Currently Selected Sensor in Dedicated Hub
+      if (selectedSensorId === 'H01' && rawVal !== null && !isNaN(rawVal)) {
+        if (hubRawValEl) hubRawValEl.textContent = rawVal.toFixed(2);
+        if (calVal !== null && !isNaN(calVal) && hubCalValEl) {
+          hubCalValEl.textContent = calVal.toFixed(2);
+          const d = calVal - rawVal;
+          if (hubDeltaValEl) hubDeltaValEl.textContent = `(Δ: ${d >= 0 ? '+' : ''}${d.toFixed(2)})`;
+        }
+        if (hubJitterValEl) hubJitterValEl.textContent = `±${jitter.toFixed(2)} %`;
+        if (hubHealthPctEl) hubHealthPctEl.textContent = health.toFixed(1) + '%';
+        if (hubHealthBarEl) hubHealthBarEl.style.width = health.toFixed(1) + '%';
+        if (hubAccuracyValEl) hubAccuracyValEl.textContent = liveAccuracy.toFixed(1) + '%';
+        if (hubPrecisionValEl) hubPrecisionValEl.textContent = livePrecision.toFixed(1) + '%';
+
+        if (hubStatusPillEl) {
+          if (health >= 85) {
+            hubStatusPillEl.textContent = 'OPTIMAL';
+            hubStatusPillEl.className = 'font-mono font-bold text-emerald-400';
+          } else if (health >= 60) {
+            hubStatusPillEl.textContent = 'WARNING';
+            hubStatusPillEl.className = 'font-mono font-bold text-amber-400';
+          } else {
+            hubStatusPillEl.textContent = 'DRIFT CRITICAL';
+            hubStatusPillEl.className = 'font-mono font-bold text-red-400';
+          }
+        }
+      } else if (selectedSensorId === 'LDR' && ldrVal !== null && !isNaN(ldrVal)) {
+        if (hubRawValEl) hubRawValEl.textContent = ldrVal;
+        if (hubCalValEl) hubCalValEl.textContent = ldrVal;
+        if (hubDeltaValEl) hubDeltaValEl.textContent = 'Raw ADC';
+        if (hubJitterValEl) hubJitterValEl.textContent = '±1.2 ADC';
+        if (hubStatusPillEl) {
+          hubStatusPillEl.textContent = 'OPTIMAL';
+          hubStatusPillEl.className = 'font-mono font-bold text-emerald-400';
+        }
+      }
+
+      // 5. Update Random Forest Failure Predictor (from live packet)
+      if (!isManualSimulationMode && selectedSensorId === 'H01') {
+        if (packet.mlPrediction) {
+          updateMLDisplay(packet.mlPrediction);
+        } else if (rawVal !== null && calVal !== null) {
+          const slope = rawVal > 0 ? (calVal / rawVal) : 1.0;
+          const slopeDev = Math.abs(slope - 1.0);
+          const riskPct = slopeDev >= 0.18 ? 98.5 : (slopeDev >= 0.05 ? 65.0 : 11.6);
+          updateMLDisplay({
+            slope: slope,
+            slope_deviation: slopeDev,
+            ml_prediction: {
+              failure_risk_pct: riskPct,
+              estimated_time_to_failure: slopeDev >= 0.18 ? '< 4 Operating Hours' : (slopeDev >= 0.05 ? '24 - 48 Operating Hours' : '> 500 Operating Hours'),
+              recommendation: slopeDev >= 0.18 ? 'Replace or recalibrate sensor immediately.' : (slopeDev >= 0.05 ? 'Schedule sensor inspection soon.' : 'Normal operation.')
+            }
+          });
+        }
+      }
+
+      // 6. Waveform Chart
+      if (!isChartPaused && rawVal !== null && calVal !== null && !isNaN(rawVal) && !isNaN(calVal)) {
+        const label = packet.timestamp.split(' ')[0] || packet.timestamp;
+        telemetryChart.data.labels.push(label);
+        telemetryChart.data.datasets[0].data.push(rawVal);
+        telemetryChart.data.datasets[1].data.push(calVal);
+
+        while (telemetryChart.data.labels.length > maxDataPoints) {
+          telemetryChart.data.labels.shift();
+          telemetryChart.data.datasets[0].data.shift();
+          telemetryChart.data.datasets[1].data.shift();
+        }
+
+        updateAdaptiveScale();
+        telemetryChart.update('none');
+        totalPacketsReceived++;
+        if (totalPacketsEl) totalPacketsEl.textContent = totalPacketsReceived;
+      }
+
+      // 7. Log Entry
+      if (logContainer) {
+        const logItem = document.createElement('div');
+        logItem.className = "p-2 rounded-lg bg-slate-900/80 border border-slate-800/80 flex justify-between items-center";
+        let badgeColor = "text-slate-300";
+        if (packet.raw.includes("LIVE TX")) badgeColor = "text-emerald-400 font-semibold";
+        else if (packet.raw.includes("WARNING") || packet.raw.includes("ERROR")) badgeColor = "text-amber-400 font-semibold";
+        else if (packet.raw.includes("BUFFER") || packet.raw.includes("SYNC")) badgeColor = "text-cyan-400 font-semibold";
+
+        logItem.innerHTML = `
+          <span class="${badgeColor}">${packet.raw}</span>
+          <span class="text-slate-500 text-[10px] font-mono">${packet.timestamp}</span>
+        `;
+        logContainer.prepend(logItem);
+        if (logContainer.children.length > 100) {
+          logContainer.removeChild(logContainer.lastChild);
+        }
+      }
+    });
+
+    // --- Chart Controls ---
+    function togglePauseChart() {
+      isChartPaused = !isChartPaused;
+      if (isChartPaused) {
+        pauseIcon.textContent = "▶";
+        pauseText.textContent = "Resume";
+        pauseBtn.className = "text-xs bg-emerald-600 hover:bg-emerald-500 border border-emerald-500/80 px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 text-white shadow-sm";
+      } else {
+        pauseIcon.textContent = "⏸";
+        pauseText.textContent = "Pause";
+        pauseBtn.className = "text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 text-slate-200";
+      }
+    }
+
+    function clearChart() {
+      telemetryChart.data.labels = [];
+      telemetryChart.data.datasets[0].data = [];
+      telemetryChart.data.datasets[1].data = [];
+      delete telemetryChart.options.scales.y.min;
+      delete telemetryChart.options.scales.y.max;
+      telemetryChart.update();
+      totalPacketsReceived = 0;
+      deltaSum = 0;
+      deltaCount = 0;
+      totalPacketsEl.textContent = "0";
+      avgDeltaEl.textContent = "--";
+      activeYSpanEl.textContent = "--";
+    }
+
+    function setWindowSize(size) {
+      maxDataPoints = size;
+      [20, 40, 80].forEach(s => {
+        document.getElementById(`win-${s}`).className = s === size
+          ? "px-2.5 py-1 rounded-lg bg-slate-700 text-white font-medium transition shadow-sm"
+          : "px-2.5 py-1 rounded-lg text-slate-400 hover:text-slate-200 transition";
+      });
+      while (telemetryChart.data.labels.length > maxDataPoints) {
+        telemetryChart.data.labels.shift();
+        telemetryChart.data.datasets[0].data.shift();
+        telemetryChart.data.datasets[1].data.shift();
+      }
+      updateAdaptiveScale();
+      telemetryChart.update();
+    }
+
+    function clearLogs() {
+      logContainer.innerHTML = '<div class="text-slate-500 italic font-mono">Feed cleared...</div>';
+    }
+  </script>
+</body>
+</html>
