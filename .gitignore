@@ -1,0 +1,32 @@
+# Python Environments & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+backend/__pycache__/
+backend/.venv/
+backend/venv/
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# Environment Variables & Secrets
+backend/.env
+.env
+.env.local
+
+# IDEs & Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+Thumbs.db
+.DS_Store
+
+# Logs
+*.log
